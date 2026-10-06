@@ -1,63 +1,62 @@
 import { useStore } from '../model/store';
 import { formatMinutes, newId, type ActivityType } from '../model/types';
+import { useUi } from '../ui';
 import { DurationInput } from './DurationInput';
 
 export default function Activities() {
   const { data, dispatch } = useStore();
+  const { toast } = useUi();
   const save = (item: ActivityType) => dispatch({ type: 'upsert', collection: 'activityTypes', item });
 
   return (
-    <section>
-      <h2>Tipos de actividad</h2>
-      <p className="hint">
-        El <b>bloque</b> es el tiempo que queda ocupado desde la hora de inicio: duración de la actividad + margen para
-        desplazarse. Si dos bloques se pisan, es una coincidencia.
+    <section className="card">
+      <div className="card-head">
+        <h2>Actividades</h2>
+        <button onClick={() => save({ id: newId(), name: 'Nueva actividad', blockMinutes: 180, color: '#3b6fd8' })}>+ Añadir actividad</button>
+      </div>
+      <p className="muted">
+        El <b>bloque</b> es el tiempo que queda ocupado desde la hora de inicio: lo que dura la actividad más el margen para llegar a la
+        siguiente. Ejemplo: un partido de 2 h con 1 h de desplazamiento → bloque de 3 h.
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Color</th>
-            <th>Nombre</th>
-            <th>Bloque</th>
-            <th>Equipos</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.activityTypes.map((a) => {
-            const nTeams = data.teams.filter((t) => t.activityTypeId === a.id).length;
-            return (
-              <tr key={a.id}>
-                <td>
-                  <input type="color" value={a.color} onChange={(e) => save({ ...a, color: e.target.value })} />
-                </td>
-                <td>
-                  <input value={a.name} onChange={(e) => save({ ...a, name: e.target.value })} />
-                </td>
-                <td>
-                  <DurationInput minutes={a.blockMinutes} onChange={(m) => save({ ...a, blockMinutes: m ?? 60 })} />
-                  <span className="muted"> {formatMinutes(a.blockMinutes)}</span>
-                </td>
-                <td>{nTeams}</td>
-                <td>
-                  <button
-                    className="danger"
-                    onClick={() => {
-                      if (nTeams === 0 || window.confirm(`Se borrarán también ${nTeams} equipo(s) y sus partidos. ¿Seguir?`))
-                        dispatch({ type: 'remove', collection: 'activityTypes', id: a.id });
-                    }}
-                  >
-                    Borrar
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <button onClick={() => save({ id: newId(), name: 'Nueva actividad', blockMinutes: 180, color: '#3b6fd8' })}>
-        + Añadir actividad
-      </button>
+      <div className="activity-list">
+        {data.activityTypes.map((a) => {
+          const nTeams = data.teams.filter((t) => t.activityTypeId === a.id).length;
+          return (
+            <div key={a.id} className="activity" style={{ borderLeftColor: a.color }}>
+              <label className="color-swatch" title="Cambiar color">
+                <input type="color" value={a.color} onChange={(e) => save({ ...a, color: e.target.value })} />
+              </label>
+              <label className="field grow">
+                <span>Nombre</span>
+                <input value={a.name} onChange={(e) => save({ ...a, name: e.target.value })} />
+              </label>
+              <div className="field">
+                <span>Bloque ocupado</span>
+                <DurationInput minutes={a.blockMinutes} onChange={(m) => save({ ...a, blockMinutes: m ?? 60 })} />
+              </div>
+              <div className="activity-meta">
+                <span className="block-preview">{formatMinutes(a.blockMinutes)}</span>
+                <span className="muted">
+                  {nTeams} equipo{nTeams === 1 ? '' : 's'}
+                </span>
+              </div>
+              <button
+                className="icon-btn danger"
+                title="Borrar actividad"
+                aria-label={`Borrar ${a.name}`}
+                onClick={() => {
+                  if (nTeams === 0 || window.confirm(`Se borrarán también ${nTeams} equipo(s) y sus partidos. ¿Seguir?`)) {
+                    dispatch({ type: 'remove', collection: 'activityTypes', id: a.id });
+                    toast(`Actividad "${a.name}" borrada`);
+                  }
+                }}
+              >
+                🗑
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

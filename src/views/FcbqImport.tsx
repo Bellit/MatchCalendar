@@ -2,84 +2,128 @@ import { useState } from 'react';
 import { parseFcbqText, type ParsedMatch } from '../import/fcbqParser';
 import { useStore } from '../model/store';
 import { newId, type CalendarEvent, type Team } from '../model/types';
+import { formatDateShort, useUi } from '../ui';
 
 type Row = ParsedMatch & { include: boolean };
 
 export default function FcbqImport({ team, onDone }: { team: Team; onDone: () => void }) {
   const { data, dispatch } = useStore();
+  const { toast } = useUi();
   const [text, setText] = useState('');
   const [rows, setRows] = useState<Row[] | null>(null);
 
+  const existing = data.events.filter((e) => e.teamId === team.id);
+  // Mismo equipo y misma fecha → se actualiza el partido existente (p. ej. cambio de hora).
+  const findPrev = (r: Row) => existing.find((e) => e.date === r.date);
+
+  const analyze = (t: string) => setRows(t.trim() ? parseFcbqText(t).map((m) => ({ ...m, include: true })) : null);
   const update = (i: number, patch: Partial<Row>) => setRows((rs) => rs!.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
+  const selected = rows?.filter((r) => r.include) ?? [];
+  const nUpdates = selected.filter(findPrev).length;
+
   const doImport = () => {
-    const existing = data.events.filter((e) => e.teamId === team.id);
-    const events: CalendarEvent[] = rows!
-      .filter((r) => r.include)
-      .map((r) => {
-        // Mismo equipo y misma fecha → se actualiza el partido existente (p. ej. cambio de hora).
-        const prev = existing.find((e) => e.date === r.date);
-        return { ...prev, id: prev?.id ?? newId(), teamId: team.id, date: r.date, time: r.time, title: r.title, venue: r.venue, notes: r.notes ?? prev?.notes };
-      });
+    const events: CalendarEvent[] = selected.map((r) => {
+      const prev = findPrev(r);
+      return { ...prev, id: prev?.id ?? newId(), teamId: team.id, date: r.date, time: r.time, title: r.title, venue: r.venue, notes: r.notes ?? prev?.notes };
+    });
     dispatch({ type: 'upsertEvents', events });
+    toast(
+      `${events.length - nUpdates} partido(s) nuevos` + (nUpdates ? ` y ${nUpdates} actualizado(s)` : '') + ` en ${team.name}`,
+    );
     onDone();
   };
 
   return (
-    <div className="panel">
-      <p className="hint">
-        Abre el calendario del equipo en <b>basquetcatala.cat</b>, selecciona la tabla de partidos, cópiala (Ctrl+C) y pégala aquí. Se
-        importarán en <b>{team.name}</b>. Si un partido ya existe en esa fecha, se actualiza.
-      </p>
-      <textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder="Pega aquí el calendario…" />
-      <div className="toolbar">
-        <button onClick={() => setRows(parseFcbqText(text).map((m) => ({ ...m, include: true })))} disabled={!text.trim()}>
-          Analizar
-        </button>
-      </div>
-      {rows && (
+    <div className="import">
+      <ol className="howto">
+        <li>
+          Abre el calendario del equipo en{' '}
+          <a href="https://www.basquetcatala.cat" target="_blank" rel="noreferrer">
+            basquetcatala.cat
+          </a>
+          .
+        </li>
+        <li>Selecciona con el ratón toda la tabla de partidos y cópiala (Ctrl+C).</li>
+        <li>Pégala aquí debajo (Ctrl+V). Revisa la lista y pulsa Importar.</li>
+      </ol>
+      <textarea
+        rows={rows ? 3 : 7}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          analyze(e.target.value);
+        }}
+        placeholder="Pega aquí el calendario…"
+        aria-label="Texto del calendario"
+      />
+
+      {rows && rows.length === 0 && (
+        <p className="notice warn">No se ha encontrado ninguna fecha (dd/mm/aaaa) en el texto. ¿Has copiado la tabla de partidos?</p>
+      )}
+
+      {rows && rows.length > 0 && (
         <>
-          <p>
-            {rows.length} partido(s) detectado(s). Revisa y corrige antes de importar.
-            {rows.length === 0 && ' No se encontró ninguna fecha (dd/mm/aaaa) en el texto.'}
+          <p className="notice ok">
+            ✅ {rows.length} partido(s) detectados. Desmarca los que no quieras y corrige lo que haga falta.
           </p>
           <div className="table-wrap">
-            <table>
+            <table className="events">
               <thead>
                 <tr>
-                  <th></th>
+                  <th>
+                    <input
+                      type="checkbox"
+                      aria-label="Seleccionar todos"
+                      checked={rows.every((r) => r.include)}
+                      onChange={(e) => setRows(rows.map((r) => ({ ...r, include: e.target.checked })))}
+                    />
+                  </th>
                   <th>Fecha</th>
                   <th>Hora</th>
                   <th>Partido</th>
                   <th>Lugar</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={i} className={r.include ? (r.time ? '' : 'pending') : 'excluded'}>
                     <td>
-                      <input type="checkbox" checked={r.include} onChange={(e) => update(i, { include: e.target.checked })} />
+                      <input type="checkbox" aria-label={`Importar ${formatDateShort(r.date)}`} checked={r.include} onChange={(e) => update(i, { include: e.target.checked })} />
                     </td>
                     <td>
-                      <input type="date" value={r.date} onChange={(e) => update(i, { date: e.target.value })} />
+                      <input type="date" value={r.date} onChange={(e) => e.target.value && update(i, { date: e.target.value })} />
                     </td>
                     <td>
                       <input type="time" value={r.time ?? ''} onChange={(e) => update(i, { time: e.target.value || undefined })} />
                     </td>
                     <td>
-                      <input value={r.title} onChange={(e) => update(i, { title: e.target.value })} />
+                      <input className="wide" value={r.title} onChange={(e) => update(i, { title: e.target.value })} />
                     </td>
                     <td>
-                      <input value={r.venue ?? ''} onChange={(e) => update(i, { venue: e.target.value || undefined })} />
+                      <input className="wide" value={r.venue ?? ''} onChange={(e) => update(i, { venue: e.target.value || undefined })} />
                     </td>
+                    <td>{findPrev(r) ? <span className="pill">actualiza</span> : <span className="pill new">nuevo</span>}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <button className="primary" onClick={doImport} disabled={!rows.some((r) => r.include)}>
-            Importar {rows.filter((r) => r.include).length} partido(s)
-          </button>
+          <div className="toolbar">
+            <button className="primary" onClick={doImport} disabled={selected.length === 0}>
+              Importar {selected.length} partido(s)
+            </button>
+            <button
+              className="ghost"
+              onClick={() => {
+                setText('');
+                setRows(null);
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
         </>
       )}
     </div>

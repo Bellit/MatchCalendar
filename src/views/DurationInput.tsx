@@ -17,7 +17,7 @@ export function DurationInput({
   };
   return (
     <span className="duration">
-      <input type="number" min={0} max={24} value={h} placeholder="h" onChange={(e) => update(e.target.value, String(m))} />
+      <input type="number" min={0} max={24} value={h} placeholder="h" aria-label="Horas" onChange={(e) => update(e.target.value, String(m))} />
       h
       <input
         type="number"
@@ -26,6 +26,7 @@ export function DurationInput({
         step={5}
         value={m}
         placeholder="min"
+        aria-label="Minutos"
         onChange={(e) => update(String(h), e.target.value)}
       />
       min
