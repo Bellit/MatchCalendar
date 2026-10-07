@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 112 112" role="img" aria-label="MatchCalendar">
+  <title>MatchCalendar</title>
+  <defs><clipPath id="mci-light"><circle cx="50" cy="72" r="20"/></clipPath></defs>
+  <rect x="8" y="16" width="104" height="96" rx="20" fill="#0F2A4A"/>
+  <rect x="34" y="6" width="9" height="20" rx="4.5" fill="#0F2A4A" stroke="#fff" stroke-width="3"/>
+  <rect x="77" y="6" width="9" height="20" rx="4.5" fill="#0F2A4A" stroke="#fff" stroke-width="3"/>
+  <rect x="16" y="40" width="88" height="64" rx="12" fill="#fff"/>
+  <circle cx="50" cy="72" r="20" fill="#2F80ED"/>
+  <circle cx="70" cy="72" r="20" fill="#FF7A45"/>
+  <circle cx="70" cy="72" r="20" fill="#0F2A4A" clip-path="url(#mci-light)"/>
+  <path d="M54 72.5l4.5 4.5 8-9" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

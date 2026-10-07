@@ -43,9 +43,9 @@ function Shell() {
   return (
     <div className="app">
       <header className="topbar">
-        <button className="brand" onClick={() => go('home')}>
-          <BrandMark />
-          MatchCalendar
+        <button className="brand" onClick={() => go('home')} aria-label="MatchCalendar: ir a inicio">
+          {/* La barra es siempre azul marino: se usa la versión del logo para fondo oscuro */}
+          <img className="brand-logo" src={`${import.meta.env.BASE_URL}matchcalendar-logo-dark.svg`} alt="" width={176} height={40} />
         </button>
         <nav className="tabs" aria-label="Secciones">
           {TABS.map((t) => (
@@ -68,18 +68,3 @@ function Shell() {
   );
 }
 
-/** Dos bloques de tiempo que se pisan: la idea de la app. */
-function BrandMark() {
-  return (
-    <svg className="brand-logo" viewBox="0 0 30 20" aria-hidden>
-      <defs>
-        <pattern id="brand-hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect width="2" height="4" fill="#ff5a6b" />
-        </pattern>
-      </defs>
-      <rect x="0" y="2" width="19" height="7" rx="1.5" fill="#f2a900" />
-      <rect x="11" y="11" width="19" height="7" rx="1.5" fill="#ffffff" />
-      <rect x="11" y="0" width="8" height="20" fill="url(#brand-hatch)" />
-    </svg>
-  );
-}
