@@ -236,6 +236,12 @@ input[type='checkbox'] { accent-color: var(--ink); width: 16px; height: 16px; }
 .toasts { position: fixed; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 50; width: max-content; max-width: calc(100% - 32px); }
 .toast { background: var(--board); color: #fff; padding: 10px 18px; border-radius: var(--r-ctl); border-left: 4px solid var(--brand-orange); box-shadow: 0 8px 24px rgba(8, 16, 29, 0.3); animation: toast-in 0.2s ease-out; font-size: 0.95rem; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+.toast { display: flex; align-items: center; gap: 16px; }
+.toast-action {
+  flex: none; background: transparent; color: #fff; border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 3px 12px; font-weight: 600; font-size: 0.9rem;
+}
+.toast-action:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); border-color: #fff; }
 
 /* ───────── Home ───────── */
 .hero { padding: 24px 0 32px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }

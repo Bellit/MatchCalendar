@@ -3,7 +3,7 @@ import { parseFcbqText, type ParsedMatch } from '../import/fcbqParser';
 import { matchExisting } from '../import/match';
 import { useStore } from '../model/store';
 import { newId, type CalendarEvent, type Team } from '../model/types';
-import { formatDateShort, useUi } from '../ui';
+import { formatDateShort, plural, useUi } from '../ui';
 
 type Row = ParsedMatch & { include: boolean };
 
@@ -31,7 +31,7 @@ export default function FcbqImport({ team, onDone }: { team: Team; onDone: () =>
     });
     dispatch({ type: 'upsertEvents', events });
     toast(
-      `${events.length - nUpdates} partido(s) nuevos` + (nUpdates ? ` y ${nUpdates} actualizado(s)` : '') + ` en ${team.name}`,
+      `${plural(events.length - nUpdates, 'partido nuevo', 'partidos nuevos')}` + (nUpdates ? ` y ${plural(nUpdates, 'actualizado')}` : '') + ` en ${team.name}`,
     );
     onDone();
   };
@@ -67,7 +67,7 @@ export default function FcbqImport({ team, onDone }: { team: Team; onDone: () =>
       {rows && rows.length > 0 && (
         <>
           <p className="notice ok">
-            ✅ {rows.length} partido(s) detectados. Desmarca los que no quieras y corrige lo que haga falta.
+            ✅ {plural(rows.length, 'partido detectado', 'partidos detectados')}. Desmarca los que no quieras y corrige lo que haga falta.
           </p>
           <div className="table-wrap">
             <table className="events">
@@ -114,7 +114,7 @@ export default function FcbqImport({ team, onDone }: { team: Team; onDone: () =>
           </div>
           <div className="toolbar">
             <button className="primary" onClick={doImport} disabled={selected.length === 0}>
-              Importar {selected.length} partido(s)
+              Importar {plural(selected.length, 'partido')}
             </button>
             <button
               className="ghost"

@@ -2,11 +2,12 @@ import { useState, type FormEvent } from 'react';
 import { findConflicts } from '../logic/conflicts';
 import { useStore } from '../model/store';
 import { newId, type AppData, type Group } from '../model/types';
-import { EmptyState, localToday, useUi } from '../ui';
+import { EmptyState, localToday, useRemoveWithUndo, useUi } from '../ui';
 
 export default function Groups() {
   const { data, dispatch } = useStore();
   const { go, toast } = useUi();
+  const remove = useRemoveWithUndo();
   const [name, setName] = useState('');
   const [teamIds, setTeamIds] = useState<string[]>([]);
   const save = (g: Group) => dispatch({ type: 'upsert', collection: 'groups', item: g });
@@ -73,8 +74,7 @@ export default function Groups() {
                 <button
                   className="ghost danger"
                   onClick={() => {
-                    dispatch({ type: 'remove', collection: 'groups', id: g.id });
-                    toast(`Grupo "${g.name}" borrado`);
+                    remove('groups', g.id, `Grupo "${g.name}" borrado`);
                   }}
                 >
                   Borrar

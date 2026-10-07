@@ -29,7 +29,7 @@ export default function App() {
 }
 
 function Shell() {
-  const { data, saveFailed } = useStore();
+  const { data, storageProblem } = useStore();
   const { nav, go } = useUi();
   const View = TABS.find((t) => t.id === nav.tab)!.view;
 
@@ -62,7 +62,16 @@ function Shell() {
         </nav>
       </header>
       <main key={nav.tab + (nav.teamId ?? '')}>
-        {saveFailed && (
+        {storageProblem === 'newer' && (
+          <p className="notice bad save-failed" role="alert">
+            Tus datos se guardaron con una versión más nueva de MatchCalendar. Esta pestaña tiene una versión antigua y no los puede
+            mostrar ni guardar cambios.{' '}
+            <button className="link" onClick={() => window.location.reload()}>
+              Recargar para actualizar
+            </button>
+          </p>
+        )}
+        {storageProblem === 'quota' && (
           <p className="notice bad save-failed" role="alert">
             Los últimos cambios no se han podido guardar en este navegador (almacenamiento lleno o bloqueado). Si cierras la página se
             perderán.{' '}

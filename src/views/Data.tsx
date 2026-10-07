@@ -1,8 +1,8 @@
 import { useRef } from 'react';
 import { useStore } from '../model/store';
 import { DEFAULT_DATA } from '../model/types';
-import { sanitizeAppData } from '../model/validate';
-import { localToday, useUi } from '../ui';
+import { parseAppData, serializeAppData } from '../model/validate';
+import { downloadFile, localToday, plural, useUi } from '../ui';
 
 export default function Data() {
   const { data, dispatch } = useStore();
@@ -10,12 +10,7 @@ export default function Data() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `matchcalendar-${localToday()}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    downloadFile(serializeAppData(data, true), `matchcalendar-${localToday()}.json`);
     toast('Copia descargada');
   };
 
@@ -27,15 +22,20 @@ export default function Data() {
       } catch {
         throw new Error('el archivo no es un JSON válido');
       }
-      const result = sanitizeAppData(raw);
-      if (!result) throw new Error('el archivo no es una copia de MatchCalendar');
+      const result = parseAppData(raw);
+      if (!result.ok)
+        throw new Error(
+          result.reason === 'newer'
+            ? 'la copia es de una versión más nueva de MatchCalendar. Recarga la página para actualizar y vuelve a intentarlo'
+            : 'el archivo no es una copia de MatchCalendar',
+        );
       const { data: clean, dropped } = result;
       const warning = dropped
         ? `\n\nAtención: ${dropped} ${dropped === 1 ? 'elemento del archivo está dañado o incompleto' : 'elementos del archivo están dañados o incompletos'} y no se cargará${dropped === 1 ? '' : 'n'}.`
         : '';
       if (window.confirm(`Esto sustituirá todos los datos actuales. ¿Seguir?${warning}`)) {
         dispatch({ type: 'replaceAll', data: clean });
-        toast(`Copia importada: ${clean.teams.length} equipos, ${clean.events.length} partidos` + (dropped ? ` (${dropped} descartados)` : ''));
+        toast(`Copia importada: ${plural(clean.teams.length, 'equipo')}, ${plural(clean.events.length, 'partido')}` + (dropped ? ` (${dropped} descartados)` : ''));
       }
     } catch (e) {
       toast(`No se pudo importar: ${(e as Error).message}`);
@@ -56,6 +56,11 @@ export default function Data() {
         <p className="muted">
           Todo se guarda <b>solo en este navegador</b>. Haz una copia de vez en cuando para no perderla, o para pasarla a otro ordenador
           o a otra persona (por ejemplo, al coordinador del club).
+        </p>
+        <p className="notice warn">
+          Los datos no tienen contraseña: cualquiera que use este navegador puede verlos. En un ordenador compartido (el del club, una
+          biblioteca…) borra los datos al terminar. Las copias descargadas incluyen nombres de equipos y personas: compártelas solo
+          con quien las necesite.
         </p>
         <div className="stats">
           {stats.map(([n, label]) => (

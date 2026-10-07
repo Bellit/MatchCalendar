@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useStore } from '../model/store';
 import { formatMinutes, newId, type CalendarEvent, type Team } from '../model/types';
-import { EmptyState, formatMonth, localToday, useUi } from '../ui';
+import { EmptyState, formatMonth, localToday, plural, useRemoveWithUndo, useUi } from '../ui';
 import { DurationInput } from './DurationInput';
 import FcbqImport from './FcbqImport';
 
@@ -83,7 +83,7 @@ export default function Teams() {
 
 function TeamDetail({ team }: { team: Team }) {
   const { data, dispatch } = useStore();
-  const { toast } = useUi();
+  const remove = useRemoveWithUndo();
   const events = data.events.filter((e) => e.teamId === team.id);
   const [showImport, setShowImport] = useState(events.length === 0);
   const [showPast, setShowPast] = useState(false);
@@ -114,9 +114,8 @@ function TeamDetail({ team }: { team: Team }) {
           <button
             className="ghost danger"
             onClick={() => {
-              if (window.confirm(`¿Borrar "${team.name}" y sus ${events.length} partido(s)?`)) {
-                dispatch({ type: 'remove', collection: 'teams', id: team.id });
-                toast(`Equipo "${team.name}" borrado`);
+              if (events.length === 0 || window.confirm(`¿Borrar "${team.name}" y sus ${plural(events.length, 'partido')}?`)) {
+                remove('teams', team.id, `Equipo "${team.name}" borrado`);
               }
             }}
           >
@@ -174,7 +173,7 @@ function TeamDetail({ team }: { team: Team }) {
             </label>
           )}
         </div>
-        {pending > 0 && <p className="notice warn">⏳ {pending} partido(s) sin hora: no cuentan para coincidencias hasta que tengan hora.</p>}
+        {pending > 0 && <p className="notice warn">⏳ {pending === 1 ? '1 partido sin hora: no cuenta' : `${pending} partidos sin hora: no cuentan`} para coincidencias hasta que tenga{pending === 1 ? '' : 'n'} hora.</p>}
         {visible.length === 0 ? (
           <EmptyState icon="🗓️" title={events.length ? 'No hay partidos próximos' : 'Sin partidos todavía'}>
             <p>Añádelos a mano o pegando el calendario de la federación.</p>
@@ -227,8 +226,7 @@ function TeamDetail({ team }: { team: Team }) {
                             title="Borrar partido"
                             aria-label="Borrar partido"
                             onClick={() => {
-                              dispatch({ type: 'remove', collection: 'events', id: ev.id });
-                              toast('Partido borrado');
+                              remove('events', ev.id, 'Partido borrado');
                             }}
                           >
                             🗑

@@ -122,6 +122,36 @@ export interface SanitizeResult {
   dropped: number;
 }
 
+/**
+ * Versión del formato de datos guardado y exportado. Si algún día cambia la forma de los datos:
+ * súbela y añade en `migrate` la conversión desde la versión anterior.
+ */
+export const SCHEMA_VERSION = 1;
+
+/** Convierte datos de versiones anteriores al formato actual. Los datos sin versión son de la versión 1. */
+function migrate(x: Obj, _from: number): Obj {
+  return x;
+}
+
+export type ParseResult = ({ ok: true } & SanitizeResult) | { ok: false; reason: 'invalid' | 'newer' };
+
+/**
+ * Lee datos externos: comprueba la versión, migra si son antiguos y los limpia.
+ * Datos de una versión más nueva se rechazan: interpretarlos con este código podría perder información.
+ */
+export function parseAppData(x: unknown): ParseResult {
+  if (!isObj(x)) return { ok: false, reason: 'invalid' };
+  const version = typeof x.version === 'number' && Number.isInteger(x.version) && x.version > 0 ? x.version : 1;
+  if (version > SCHEMA_VERSION) return { ok: false, reason: 'newer' };
+  const result = sanitizeAppData(migrate(x, version));
+  return result ? { ok: true, ...result } : { ok: false, reason: 'invalid' };
+}
+
+/** JSON con la versión del formato, para guardar en el navegador o exportar. */
+export function serializeAppData(data: AppData, pretty = false): string {
+  return JSON.stringify({ version: SCHEMA_VERSION, ...data }, null, pretty ? 2 : undefined);
+}
+
 /** Devuelve datos seguros para usar, o null si ni siquiera tiene la forma de una copia de MatchCalendar. */
 export function sanitizeAppData(x: unknown): SanitizeResult | null {
   if (!isObj(x)) return null;

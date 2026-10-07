@@ -1,11 +1,11 @@
 import { useStore } from '../model/store';
 import { formatMinutes, newId, type ActivityType } from '../model/types';
-import { useUi } from '../ui';
+import { plural, useRemoveWithUndo } from '../ui';
 import { DurationInput } from './DurationInput';
 
 export default function Activities() {
   const { data, dispatch } = useStore();
-  const { toast } = useUi();
+  const remove = useRemoveWithUndo();
   const save = (item: ActivityType) => dispatch({ type: 'upsert', collection: 'activityTypes', item });
 
   return (
@@ -45,9 +45,8 @@ export default function Activities() {
                 title="Borrar actividad"
                 aria-label={`Borrar ${a.name}`}
                 onClick={() => {
-                  if (nTeams === 0 || window.confirm(`Se borrarán también ${nTeams} equipo(s) y sus partidos. ¿Seguir?`)) {
-                    dispatch({ type: 'remove', collection: 'activityTypes', id: a.id });
-                    toast(`Actividad "${a.name}" borrada`);
+                  if (nTeams === 0 || window.confirm(`Se borrarán también ${plural(nTeams, 'equipo')} y sus partidos. ¿Seguir?`)) {
+                    remove('activityTypes', a.id, `Actividad "${a.name}" borrada`);
                   }
                 }}
               >

@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { STORAGE_KEY } from './model/store';
+import { downloadFile } from './ui';
 
 /**
  * Si algo falla al dibujar la app, muestra una salida en vez de una página en blanco:
@@ -23,12 +24,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, { 
     } catch {
       /* storage bloqueado */
     }
-    const blob = new Blob([raw ?? '{}'], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'matchcalendar-rescate.json';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    downloadFile(raw ?? '{}', 'matchcalendar-rescate.json');
   };
 
   private reset = () => {
