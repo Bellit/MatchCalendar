@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useStore } from '../model/store';
 import { formatMinutes, newId, type CalendarEvent, type Team } from '../model/types';
-import { EmptyState, formatMonth, localToday, plural, useRemoveWithUndo, useUi } from '../ui';
+import { EmptyState, formatMonth, localToday, plural, TrashIcon, useRemoveWithUndo, useUi } from '../ui';
 import { DurationInput } from './DurationInput';
 import FcbqImport from './FcbqImport';
 
@@ -182,61 +182,58 @@ function TeamDetail({ team }: { team: Team }) {
           [...byMonth].map(([month, evs]) => (
             <div key={month} className="month">
               <h3 className="month-title">{formatMonth(evs[0].date)}</h3>
-              <div className="table-wrap">
-                <table className="events">
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Hora</th>
-                      <th>Partido / descripción</th>
-                      <th>Lugar</th>
-                      <th title="Vacío = el del equipo o la actividad">Bloque propio</th>
-                      <th>
-                        <span className="sr-only">Acciones</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {evs.map((ev) => (
-                      <tr key={ev.id} className={(ev.time ? '' : 'pending') + (ev.date < today ? ' past' : '')}>
-                        <td>
-                          <input type="date" value={ev.date} onChange={(e) => e.target.value && saveEvent({ ...ev, date: e.target.value })} />
-                        </td>
-                        <td>
-                          <input type="time" value={ev.time ?? ''} onChange={(e) => saveEvent({ ...ev, time: e.target.value || undefined })} />
-                        </td>
-                        <td>
-                          <input
-                            className="wide"
-                            value={ev.title}
-                            placeholder="Rival / descripción"
-                            onChange={(e) => saveEvent({ ...ev, title: e.target.value })}
-                          />
-                          {ev.notes && <div className="sub">{ev.notes}</div>}
-                        </td>
-                        <td>
-                          <input className="wide" value={ev.venue ?? ''} onChange={(e) => saveEvent({ ...ev, venue: e.target.value || undefined })} />
-                        </td>
-                        <td>
-                          <DurationInput optional minutes={ev.blockMinutesOverride} onChange={(m) => saveEvent({ ...ev, blockMinutesOverride: m })} />
-                        </td>
-                        <td>
-                          <button
-                            className="icon-btn danger"
-                            title="Borrar partido"
-                            aria-label="Borrar partido"
-                            onClick={() => {
-                              remove('events', ev.id, 'Partido borrado');
-                            }}
-                          >
-                            🗑
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {/* Cada partido ocupa dos líneas (fecha, hora y partido; lugar y bloque) para caber sin scroll horizontal. */}
+              <ul className="event-rows">
+                {evs.map((ev) => (
+                  <li key={ev.id} className={'event-row' + (ev.time ? '' : ' pending') + (ev.date < today ? ' past' : '')}>
+                    <input
+                      className="ev-date"
+                      type="date"
+                      aria-label="Fecha"
+                      value={ev.date}
+                      onChange={(e) => e.target.value && saveEvent({ ...ev, date: e.target.value })}
+                    />
+                    <input
+                      className="ev-time"
+                      type="time"
+                      aria-label="Hora"
+                      title={ev.time ? undefined : 'Sin hora: no cuenta para coincidencias'}
+                      value={ev.time ?? ''}
+                      onChange={(e) => saveEvent({ ...ev, time: e.target.value || undefined })}
+                    />
+                    <div className="ev-title">
+                      <input
+                        aria-label="Partido o descripción"
+                        value={ev.title}
+                        placeholder="Rival / descripción"
+                        onChange={(e) => saveEvent({ ...ev, title: e.target.value })}
+                      />
+                      {ev.notes && <div className="sub">{ev.notes}</div>}
+                    </div>
+                    <button
+                      className="icon-btn danger ev-del"
+                      title="Borrar partido"
+                      aria-label="Borrar partido"
+                      onClick={() => remove('events', ev.id, 'Partido borrado')}
+                    >
+                      <TrashIcon />
+                    </button>
+                    <div className="ev-meta">
+                      <input
+                        className="ev-venue"
+                        aria-label="Lugar"
+                        placeholder="Lugar"
+                        value={ev.venue ?? ''}
+                        onChange={(e) => saveEvent({ ...ev, venue: e.target.value || undefined })}
+                      />
+                      <div className="ev-block" title="Vacío = el del equipo o la actividad">
+                        <span className="ev-label">Bloque propio</span>
+                        <DurationInput optional minutes={ev.blockMinutesOverride} onChange={(m) => saveEvent({ ...ev, blockMinutesOverride: m })} />
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))
         )}

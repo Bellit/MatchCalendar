@@ -164,7 +164,8 @@ button.danger:hover:not(:disabled) { border-color: var(--danger); background: va
 button.danger.solid { background: var(--danger); color: #fff; border-color: var(--danger); }
 button.link { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 button.link:hover:not(:disabled) { border: none; text-decoration-thickness: 2px; }
-.icon-btn { padding: 4px 8px; background: transparent; border-color: transparent; }
+.icon-btn { padding: 6px 8px; background: transparent; border-color: transparent; line-height: 0; }
+.icon { display: block; }
 
 input, select, textarea {
   font: inherit;
@@ -191,7 +192,7 @@ input[type='checkbox'] { accent-color: var(--ink); width: 16px; height: 16px; }
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.92rem; }
 
 .duration { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 0.85rem; }
-.duration input { width: 58px; }
+.duration input { width: 68px; }
 
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r-ctl); overflow: hidden; background: var(--surface); flex-wrap: nowrap; }
 .seg button { border: none; border-radius: 0; padding: 7px 13px; white-space: nowrap; }
@@ -303,6 +304,51 @@ details p { color: var(--muted); margin: 8px 0 4px; max-width: 75ch; }
 .month { margin-top: 18px; }
 .month-title { font-size: 0.98rem; color: var(--muted); border-bottom: 2px solid var(--text); padding-bottom: 4px; }
 .month-title::first-letter { text-transform: uppercase; }
+
+/* Partidos de un equipo: dos líneas por partido
+   [fecha][hora][partido…………………][borrar]
+   [lugar……………………………………][bloque propio] */
+.event-rows { list-style: none; margin: 0; padding: 0; }
+.event-row {
+  display: grid;
+  grid-template-columns: 150px 104px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'date time title del'
+    'meta meta meta meta';
+  gap: 2px 6px;
+  align-items: center;
+  padding: 8px 4px;
+  border-top: 1px solid var(--border);
+}
+.event-row:first-child { border-top: none; }
+.event-row:hover { background: var(--surface-2); }
+.event-row.pending { background: var(--warn-soft); }
+.event-row.past { opacity: 0.55; }
+.ev-date { grid-area: date; }
+.ev-time { grid-area: time; }
+.ev-title { grid-area: title; min-width: 0; }
+.ev-del { grid-area: del; justify-self: end; }
+/* Segunda línea en su propia fila flexible: así el bloque no ensancha la columna de borrar ni estrecha el título */
+.ev-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
+.ev-venue { flex: 1 1 220px; font-size: 0.9rem; color: var(--muted); }
+.ev-block { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.ev-label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.ev-title input { width: 100%; font-weight: 500; }
+.ev-title .sub { padding-left: 11px; }
+.event-row input { width: 100%; border-color: transparent; background: transparent; }
+.event-row .duration input { width: 68px; }
+.event-row input:hover, .event-row input:focus { border-color: var(--border); background: var(--surface); }
+.event-row.pending .ev-time { border-color: var(--brand-orange); border-style: dashed; }
+@media (max-width: 600px) {
+  .event-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto;
+    grid-template-areas:
+      'date time del'
+      'title title title'
+      'meta meta meta';
+  }
+  .ev-block { margin-left: 0; padding-left: 10px; }
+}
 
 .table-wrap { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; }

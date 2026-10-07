@@ -1,6 +1,6 @@
 import { useStore } from '../model/store';
 import { formatMinutes, newId, type ActivityType } from '../model/types';
-import { plural, useRemoveWithUndo } from '../ui';
+import { plural, TrashIcon, useRemoveWithUndo } from '../ui';
 import { DurationInput } from './DurationInput';
 
 export default function Activities() {
@@ -50,7 +50,7 @@ export default function Activities() {
                   }
                 }}
               >
-                🗑
+                <TrashIcon />
               </button>
             </div>
           );
