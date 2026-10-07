@@ -9,13 +9,13 @@ import Groups from './views/Groups';
 import Home from './views/Home';
 import Teams from './views/Teams';
 
-const TABS: { id: TabId; label: string; icon: string; view: ComponentType }[] = [
-  { id: 'home', label: 'Inicio', icon: '🏠', view: Home },
-  { id: 'conflicts', label: 'Coincidencias', icon: '⚠️', view: Conflicts },
-  { id: 'teams', label: 'Equipos', icon: '👥', view: Teams },
-  { id: 'groups', label: 'Grupos', icon: '🔗', view: Groups },
-  { id: 'activities', label: 'Actividades', icon: '⏱️', view: Activities },
-  { id: 'data', label: 'Datos', icon: '💾', view: Data },
+const TABS: { id: TabId; label: string; view: ComponentType }[] = [
+  { id: 'home', label: 'Inicio', view: Home },
+  { id: 'conflicts', label: 'Coincidencias', view: Conflicts },
+  { id: 'teams', label: 'Equipos', view: Teams },
+  { id: 'groups', label: 'Grupos', view: Groups },
+  { id: 'activities', label: 'Actividades', view: Activities },
+  { id: 'data', label: 'Datos', view: Data },
 ];
 
 export default function App() {
@@ -44,9 +44,7 @@ function Shell() {
     <div className="app">
       <header className="topbar">
         <button className="brand" onClick={() => go('home')}>
-          <span className="brand-logo" aria-hidden>
-            📅
-          </span>
+          <BrandMark />
           MatchCalendar
         </button>
         <nav className="tabs" aria-label="Secciones">
@@ -57,7 +55,6 @@ function Shell() {
               aria-current={t.id === nav.tab ? 'page' : undefined}
               onClick={() => go(t.id)}
             >
-              <span aria-hidden>{t.icon}</span>
               <span className="tab-label">{t.label}</span>
               {t.id === 'conflicts' && upcoming > 0 && <span className="badge">{upcoming}</span>}
             </button>
@@ -68,5 +65,21 @@ function Shell() {
         <View />
       </main>
     </div>
+  );
+}
+
+/** Dos bloques de tiempo que se pisan: la idea de la app. */
+function BrandMark() {
+  return (
+    <svg className="brand-logo" viewBox="0 0 30 20" aria-hidden>
+      <defs>
+        <pattern id="brand-hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="2" height="4" fill="#ff5a6b" />
+        </pattern>
+      </defs>
+      <rect x="0" y="2" width="19" height="7" rx="1.5" fill="#f2a900" />
+      <rect x="11" y="11" width="19" height="7" rx="1.5" fill="#ffffff" />
+      <rect x="11" y="0" width="8" height="20" fill="url(#brand-hatch)" />
+    </svg>
   );
 }

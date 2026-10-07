@@ -64,7 +64,7 @@ export default function Groups() {
             <div className="card-head">
               <input className="title-input" value={g.name} aria-label="Nombre del grupo" onChange={(e) => save({ ...g, name: e.target.value })} />
               <div className="toolbar">
-                <span className={'pill ' + (n ? 'bad' : 'ok')}>{n ? `${n} coincidencia(s) próximas` : 'Sin coincidencias próximas'}</span>
+                <span className={'pill ' + (n ? 'bad' : 'ok')}>{n ? `${n} ${n === 1 ? 'coincidencia próxima' : 'coincidencias próximas'}` : 'Sin coincidencias próximas'}</span>
                 {n > 0 && (
                   <button className="link" onClick={() => go('conflicts')}>
                     Ver

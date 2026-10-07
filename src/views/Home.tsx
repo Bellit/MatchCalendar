@@ -62,7 +62,7 @@ export default function Home() {
         </p>
         <div className="hero-actions">
           <button className="primary lg" onClick={() => go(steps[nextStep === -1 ? 3 : nextStep].tab)}>
-            {isEmpty ? 'Empezar' : 'Continuar'} →
+            {isEmpty ? 'Empezar' : 'Continuar'}
           </button>
           <button className="lg" onClick={loadDemo}>
             Probar con datos de ejemplo
@@ -79,7 +79,8 @@ export default function Home() {
         </p>
         <div className="explain">
           <Timeline
-            label="❌ Coincidencia"
+            label="Coincidencia"
+            bad
             bars={[
               { from: 10, to: 13, text: 'Baloncesto 10:00 (3 h)', color: 'var(--c-basket)' },
               { from: 12.5, to: 16, text: 'Fútbol 12:30 (3 h 30)', color: 'var(--c-futbol)', row: 1 },
@@ -88,7 +89,7 @@ export default function Home() {
             note="Se pisan 30 min: el fútbol tendría que empezar a las 13:00 o más tarde."
           />
           <Timeline
-            label="✅ Sin coincidencia"
+            label="Sin coincidencia"
             bars={[
               { from: 10, to: 13, text: 'Baloncesto 10:00 (3 h)', color: 'var(--c-basket)' },
               { from: 13, to: 16.5, text: 'Fútbol 13:00 (3 h 30)', color: 'var(--c-futbol)', row: 1 },
@@ -159,8 +160,10 @@ function Timeline({
   bars,
   overlap,
   note,
+  bad,
 }: {
   label: string;
+  bad?: boolean;
   bars: { from: number; to: number; text: string; color: string; row?: number }[];
   overlap?: [number, number];
   note: string;
@@ -168,7 +171,7 @@ function Timeline({
   const pct = (h: number) => `${((h - T0) / (T1 - T0)) * 100}%`;
   const hours = Array.from({ length: T1 - T0 + 1 }, (_, i) => T0 + i);
   return (
-    <figure className="timeline">
+    <figure className={'timeline ' + (bad ? 'is-bad' : 'is-ok')}>
       <figcaption>{label}</figcaption>
       <div className="tl-track">
         {hours.map((h) => (

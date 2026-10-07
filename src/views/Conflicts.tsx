@@ -114,16 +114,16 @@ export default function Conflicts() {
           <span>Vista</span>
           <div className="seg">
             <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
-              ☰ Lista
+              Lista
             </button>
             <button className={view === 'agenda' ? 'active' : ''} onClick={() => setView('agenda')}>
-              ▤ Agenda
+              Agenda
             </button>
           </div>
         </div>
       </section>
 
-      <div className="stats">
+      <div className="stats scoreboard">
         <div className={'stat ' + (total ? 'bad' : 'ok')}>
           <span className="stat-value">{total}</span>
           <span className="stat-label">{total === 1 ? 'coincidencia' : 'coincidencias'}</span>
@@ -145,7 +145,7 @@ export default function Conflicts() {
           <div className="card-head">
             <h2>{group.name}</h2>
             <span className={'pill ' + (conflicts.length ? 'bad' : 'ok')}>
-              {conflicts.length ? `${conflicts.length} coincidencia(s)` : 'Sin coincidencias'}
+              {conflicts.length ? `${conflicts.length} ${conflicts.length === 1 ? 'coincidencia' : 'coincidencias'}` : 'Sin coincidencias'}
             </span>
           </div>
           {group.teamIds.length < 2 ? (
@@ -197,7 +197,7 @@ function EventCard({ ev, data }: { ev: CalendarEvent; data: AppData }) {
 }
 
 function ConflictList({ conflicts, data }: { conflicts: Conflict[]; data: AppData }) {
-  if (conflicts.length === 0) return <p className="muted">✅ Ningún partido se pisa en este periodo.</p>;
+  if (conflicts.length === 0) return <p className="muted">Ningún partido se pisa en este periodo.</p>;
   const byDate = new Map<string, Conflict[]>();
   for (const c of conflicts) byDate.set(c.a.date, [...(byDate.get(c.a.date) ?? []), c]);
   return (
@@ -225,7 +225,7 @@ function ConflictList({ conflicts, data }: { conflicts: Conflict[]; data: AppDat
                   <EventCard ev={c.b} data={data} />
                 </div>
                 <p className="suggestion">
-                  💡 Para evitarlo: <b>{bTeam}</b> debería empezar a las <b>{clock(aEnd, day)}</b> o más tarde, o <b>{aTeam}</b> a las{' '}
+                  Para evitarlo: <b>{bTeam}</b> debería empezar a las <b>{clock(aEnd, day)}</b> o más tarde, o <b>{aTeam}</b> a las{' '}
                   <b>{clock(latestA, day)}</b> o antes.
                 </p>
               </article>
