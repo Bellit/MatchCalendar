@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { findConflicts } from '../logic/conflicts';
 import { useStore } from '../model/store';
 import { newId, type AppData, type Group } from '../model/types';
-import { EmptyState, localToday, useRemoveWithUndo, useUi } from '../ui';
+import { EmptyState, Icon, NameInput, localToday, useRemoveWithUndo, useUi } from '../ui';
 
 export default function Groups() {
   const { data, dispatch } = useStore();
@@ -24,7 +24,7 @@ export default function Groups() {
   if (data.teams.length === 0) {
     return (
       <div className="card">
-        <EmptyState icon="🔗" title="Primero necesitas equipos">
+        <EmptyState icon="team" title="Primero necesitas equipos">
           <p>Un grupo junta equipos que no pueden jugar a la vez. Crea los equipos y luego vuelve aquí.</p>
           <button className="primary" onClick={() => go('teams')}>
             Ir a equipos
@@ -63,7 +63,7 @@ export default function Groups() {
         return (
           <section className="card" key={g.id}>
             <div className="card-head">
-              <input className="title-input" value={g.name} aria-label="Nombre del grupo" onChange={(e) => save({ ...g, name: e.target.value })} />
+              <NameInput className="title-input" value={g.name} label="Nombre del grupo" onSave={(name) => save({ ...g, name })} />
               <div className="toolbar">
                 <span className={'pill ' + (n ? 'bad' : 'ok')}>{n ? `${n} ${n === 1 ? 'coincidencia próxima' : 'coincidencias próximas'}` : 'Sin coincidencias próximas'}</span>
                 {n > 0 && (
@@ -106,7 +106,7 @@ function TeamChips({ data, selected, onChange }: { data: AppData; selected: stri
           >
             <span className="dot" style={{ background: type?.color }} />
             {t.name}
-            {on && <span aria-hidden>✓</span>}
+            {on && <Icon name="check" size={15} />}
           </button>
         );
       })}

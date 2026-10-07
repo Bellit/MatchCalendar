@@ -1,44 +1,65 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from '../model/store';
 import { DEFAULT_DATA } from '../model/types';
-import { parseAppData, serializeAppData } from '../model/validate';
-import { downloadFile, localToday, plural, useUi } from '../ui';
+import { parseAppData } from '../model/validate';
+import { downloadBackup, Icon, plural, useReplaceAllWithUndo, useUi } from '../ui';
 
 export default function Data() {
-  const { data, dispatch } = useStore();
-  const { toast } = useUi();
+  const { data } = useStore();
+  const { toast, confirm } = useUi();
+  const replaceAll = useReplaceAllWithUndo();
   const fileRef = useRef<HTMLInputElement>(null);
+  // Los errores de importación se quedan a la vista (un aviso de 3 s se pierde) hasta que se cierran o se reintenta.
+  const [importError, setImportError] = useState<string | null>(null);
 
   const exportJson = () => {
-    downloadFile(serializeAppData(data, true), `matchcalendar-${localToday()}.json`);
+    downloadBackup(data);
     toast('Copia descargada');
   };
 
   const importJson = async (file: File) => {
+    setImportError(null);
     try {
       let raw: unknown;
       try {
         raw = JSON.parse(await file.text());
       } catch {
-        throw new Error('el archivo no es un JSON válido');
+        throw new Error('El archivo no es un JSON válido. Elige un archivo descargado con «Descargar copia».');
       }
       const result = parseAppData(raw);
       if (!result.ok)
         throw new Error(
           result.reason === 'newer'
-            ? 'la copia es de una versión más nueva de MatchCalendar. Recarga la página para actualizar y vuelve a intentarlo'
-            : 'el archivo no es una copia de MatchCalendar',
+            ? 'La copia es de una versión más nueva de MatchCalendar. Recarga la página para actualizar y vuelve a intentarlo.'
+            : 'El archivo no es una copia de MatchCalendar. Elige un archivo descargado con «Descargar copia».',
         );
       const { data: clean, dropped } = result;
-      const warning = dropped
-        ? `\n\nAtención: ${dropped} ${dropped === 1 ? 'elemento del archivo está dañado o incompleto' : 'elementos del archivo están dañados o incompletos'} y no se cargará${dropped === 1 ? '' : 'n'}.`
-        : '';
-      if (window.confirm(`Esto sustituirá todos los datos actuales. ¿Seguir?${warning}`)) {
-        dispatch({ type: 'replaceAll', data: clean });
-        toast(`Copia importada: ${plural(clean.teams.length, 'equipo')}, ${plural(clean.events.length, 'partido')}` + (dropped ? ` (${dropped} descartados)` : ''));
-      }
+      const ok = await confirm({
+        title: '¿Cargar esta copia?',
+        body: (
+          <>
+            <p>
+              Sustituirá todos los datos actuales por {plural(clean.teams.length, 'equipo')}, {plural(clean.events.length, 'partido')} y{' '}
+              {plural(clean.groups.length, 'grupo')}. Podrás deshacerlo justo después.
+            </p>
+            {dropped > 0 && (
+              <p className="notice warn">
+                {dropped === 1 ? '1 elemento del archivo está dañado o incompleto' : `${dropped} elementos del archivo están dañados o incompletos`} y
+                no se cargará{dropped === 1 ? '' : 'n'}.
+              </p>
+            )}
+          </>
+        ),
+        confirmLabel: 'Cargar copia',
+        offerBackup: true,
+      });
+      if (ok)
+        replaceAll(
+          clean,
+          `Copia cargada: ${plural(clean.teams.length, 'equipo')}, ${plural(clean.events.length, 'partido')}` + (dropped ? ` (${dropped} descartados)` : ''),
+        );
     } catch (e) {
-      toast(`No se pudo importar: ${(e as Error).message}`);
+      setImportError((e as Error).message);
     }
   };
 
@@ -70,11 +91,21 @@ export default function Data() {
             </div>
           ))}
         </div>
+        {importError && (
+          <p className="notice bad" role="alert">
+            No se ha podido cargar la copia. {importError}{' '}
+            <button className="link" onClick={() => setImportError(null)}>
+              Cerrar
+            </button>
+          </p>
+        )}
         <div className="toolbar">
-          <button className="primary" onClick={exportJson}>
-            ⬇ Descargar copia
+          <button className="primary with-icon" onClick={exportJson}>
+            <Icon name="download" /> Descargar copia
           </button>
-          <button onClick={() => fileRef.current?.click()}>⬆ Cargar copia…</button>
+          <button className="with-icon" onClick={() => fileRef.current?.click()}>
+            <Icon name="upload" /> Cargar copia…
+          </button>
           <input
             ref={fileRef}
             type="file"
@@ -93,11 +124,15 @@ export default function Data() {
         <p className="muted">Borra todos los equipos, partidos y grupos de este navegador. Las actividades vuelven a los valores iniciales.</p>
         <button
           className="danger solid"
-          onClick={() => {
-            if (window.confirm('¿Borrar TODOS los datos? Esta acción no se puede deshacer.')) {
-              dispatch({ type: 'replaceAll', data: DEFAULT_DATA });
-              toast('Datos borrados');
-            }
+          onClick={async () => {
+            const ok = await confirm({
+              title: '¿Borrar todos los datos?',
+              body: <p>Se borrarán todos los equipos, partidos y grupos de este navegador. Podrás deshacerlo solo durante unos segundos.</p>,
+              confirmLabel: 'Borrar todo',
+              danger: true,
+              offerBackup: true,
+            });
+            if (ok) replaceAll(DEFAULT_DATA, 'Datos borrados');
           }}
         >
           Borrar todo

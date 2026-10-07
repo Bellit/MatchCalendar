@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../model/store';
 import { formatMinutes, newId, type CalendarEvent, type Team } from '../model/types';
-import { EmptyState, formatMonth, localToday, plural, TrashIcon, useRemoveWithUndo, useUi } from '../ui';
+import { EmptyState, formatDateLong, NameInput, formatMonth, localToday, parseLocalDate, plural, TrashIcon, useRemoveWithUndo, useUi } from '../ui';
 import { DurationInput } from './DurationInput';
 import FcbqImport from './FcbqImport';
 
@@ -12,6 +12,16 @@ export default function Teams() {
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState(data.activityTypes[0]?.id ?? '');
   const selected = data.teams.find((t) => t.id === selectedId) ?? data.teams[0] ?? null;
+  const detailRef = useRef<HTMLDivElement>(null);
+
+  // En pantallas estrechas el detalle queda debajo de la lista: al elegir un equipo, se lleva a la vista.
+  const select = (id: string) => {
+    setSelectedId(id);
+    if (window.matchMedia?.('(max-width: 860px)').matches) {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }));
+    }
+  };
 
   const addTeam = (e: FormEvent) => {
     e.preventDefault();
@@ -35,7 +45,7 @@ export default function Teams() {
               const count = data.events.filter((e) => e.teamId === t.id).length;
               return (
                 <li key={t.id}>
-                  <button className={'list-item' + (t.id === selected?.id ? ' active' : '')} onClick={() => setSelectedId(t.id)}>
+                  <button className={'list-item' + (t.id === selected?.id ? ' active' : '')} aria-current={t.id === selected?.id ? 'true' : undefined} onClick={() => select(t.id)}>
                     <span className="dot" style={{ background: type?.color }} />
                     <span className="list-name">{t.name}</span>
                     <span className="count">{count}</span>
@@ -66,12 +76,12 @@ export default function Teams() {
         </form>
       </aside>
 
-      <div className="detail">
+      <div className="detail" ref={detailRef}>
         {selected ? (
           <TeamDetail key={selected.id} team={selected} />
         ) : (
           <div className="card">
-            <EmptyState icon="👥" title="Todavía no hay equipos">
+            <EmptyState icon="team" title="Todavía no hay equipos">
               <p>Crea un equipo con el formulario de la izquierda: ponle nombre y elige la actividad.</p>
             </EmptyState>
           </div>
@@ -85,9 +95,12 @@ function TeamDetail({ team }: { team: Team }) {
   const { data, dispatch } = useStore();
   const remove = useRemoveWithUndo();
   const events = data.events.filter((e) => e.teamId === team.id);
-  const [showImport, setShowImport] = useState(events.length === 0);
+  // La importación de la FCBQ solo tiene sentido de entrada para baloncesto; el resto empieza a mano.
+  const [showImport, setShowImport] = useState(events.length === 0 && team.activityTypeId === 'basket');
   const [showPast, setShowPast] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const type = data.activityTypes.find((a) => a.id === team.activityTypeId);
+  const teamBlock = team.blockMinutesOverride ?? type?.blockMinutes;
   const today = localToday();
 
   const saveTeam = (t: Team) => dispatch({ type: 'upsert', collection: 'teams', item: t });
@@ -114,9 +127,8 @@ function TeamDetail({ team }: { team: Team }) {
           <button
             className="ghost danger"
             onClick={() => {
-              if (events.length === 0 || window.confirm(`¿Borrar "${team.name}" y sus ${plural(events.length, 'partido')}?`)) {
-                remove('teams', team.id, `Equipo "${team.name}" borrado`);
-              }
+              // Sin confirmación: el aviso ofrece Deshacer, igual que en grupos y actividades.
+              remove('teams', team.id, `Equipo "${team.name}" borrado` + (events.length ? ` con ${plural(events.length, 'partido')}` : ''));
             }}
           >
             Borrar equipo
@@ -125,7 +137,7 @@ function TeamDetail({ team }: { team: Team }) {
         <div className="fields">
           <label className="field grow">
             <span>Nombre</span>
-            <input value={team.name} onChange={(e) => saveTeam({ ...team, name: e.target.value })} />
+            <NameInput value={team.name} onSave={(name) => saveTeam({ ...team, name })} />
           </label>
           <label className="field">
             <span>Actividad</span>
@@ -141,7 +153,7 @@ function TeamDetail({ team }: { team: Team }) {
             <span>
               Bloque propio <small className="muted">(vacío = {type ? formatMinutes(type.blockMinutes) : '—'})</small>
             </span>
-            <DurationInput optional minutes={team.blockMinutesOverride} onChange={(m) => saveTeam({ ...team, blockMinutesOverride: m })} />
+            <DurationInput optional label="Bloque del equipo" minutes={team.blockMinutesOverride} onChange={(m) => saveTeam({ ...team, blockMinutesOverride: m })} />
           </div>
         </div>
       </section>
@@ -149,12 +161,12 @@ function TeamDetail({ team }: { team: Team }) {
       <section className="card">
         <div className="card-head">
           <h2>Añadir partidos</h2>
-          <div className="seg">
-            <button className={!showImport ? 'active' : ''} onClick={() => setShowImport(false)}>
-              ✏️ A mano
+          <div className="seg" role="group" aria-label="Cómo añadir partidos">
+            <button className={!showImport ? 'active' : ''} aria-pressed={!showImport} onClick={() => setShowImport(false)}>
+              A mano
             </button>
-            <button className={showImport ? 'active' : ''} onClick={() => setShowImport(true)}>
-              📋 Pegar de la FCBQ
+            <button className={showImport ? 'active' : ''} aria-pressed={showImport} onClick={() => setShowImport(true)}>
+              Pegar de la FCBQ
             </button>
           </div>
         </div>
@@ -173,65 +185,31 @@ function TeamDetail({ team }: { team: Team }) {
             </label>
           )}
         </div>
-        {pending > 0 && <p className="notice warn">⏳ {pending === 1 ? '1 partido sin hora: no cuenta' : `${pending} partidos sin hora: no cuentan`} para coincidencias hasta que tenga{pending === 1 ? '' : 'n'} hora.</p>}
+        {pending > 0 && <p className="notice warn">{pending === 1 ? '1 partido sin hora: no cuenta' : `${pending} partidos sin hora: no cuentan`} para coincidencias hasta que tenga{pending === 1 ? '' : 'n'} hora.</p>}
         {visible.length === 0 ? (
-          <EmptyState icon="🗓️" title={events.length ? 'No hay partidos próximos' : 'Sin partidos todavía'}>
+          <EmptyState icon="calendar" title={events.length ? 'No hay partidos próximos' : 'Sin partidos todavía'}>
             <p>Añádelos a mano o pegando el calendario de la federación.</p>
           </EmptyState>
         ) : (
           [...byMonth].map(([month, evs]) => (
             <div key={month} className="month">
               <h3 className="month-title">{formatMonth(evs[0].date)}</h3>
-              {/* Cada partido ocupa dos líneas (fecha, hora y partido; lugar y bloque) para caber sin scroll horizontal. */}
+              {/* Lectura primero: cada partido es una línea de marcador; se edita al pulsarlo. */}
               <ul className="event-rows">
                 {evs.map((ev) => (
-                  <li key={ev.id} className={'event-row' + (ev.time ? '' : ' pending') + (ev.date < today ? ' past' : '')}>
-                    <input
-                      className="ev-date"
-                      type="date"
-                      aria-label="Fecha"
-                      value={ev.date}
-                      onChange={(e) => e.target.value && saveEvent({ ...ev, date: e.target.value })}
-                    />
-                    <input
-                      className="ev-time"
-                      type="time"
-                      aria-label="Hora"
-                      title={ev.time ? undefined : 'Sin hora: no cuenta para coincidencias'}
-                      value={ev.time ?? ''}
-                      onChange={(e) => saveEvent({ ...ev, time: e.target.value || undefined })}
-                    />
-                    <div className="ev-title">
-                      <input
-                        aria-label="Partido o descripción"
-                        value={ev.title}
-                        placeholder="Rival / descripción"
-                        onChange={(e) => saveEvent({ ...ev, title: e.target.value })}
-                      />
-                      {ev.notes && <div className="sub">{ev.notes}</div>}
-                    </div>
-                    <button
-                      className="icon-btn danger ev-del"
-                      title="Borrar partido"
-                      aria-label="Borrar partido"
-                      onClick={() => remove('events', ev.id, 'Partido borrado')}
-                    >
-                      <TrashIcon />
-                    </button>
-                    <div className="ev-meta">
-                      <input
-                        className="ev-venue"
-                        aria-label="Lugar"
-                        placeholder="Lugar"
-                        value={ev.venue ?? ''}
-                        onChange={(e) => saveEvent({ ...ev, venue: e.target.value || undefined })}
-                      />
-                      <div className="ev-block" title="Vacío = el del equipo o la actividad">
-                        <span className="ev-label">Bloque propio</span>
-                        <DurationInput optional minutes={ev.blockMinutesOverride} onChange={(m) => saveEvent({ ...ev, blockMinutesOverride: m })} />
-                      </div>
-                    </div>
-                  </li>
+                  <EventRow
+                    key={ev.id}
+                    ev={ev}
+                    past={ev.date < today}
+                    inherited={teamBlock}
+                    editing={editingId === ev.id}
+                    onToggle={() => setEditingId(editingId === ev.id ? null : ev.id)}
+                    onSave={saveEvent}
+                    onRemove={() => {
+                      setEditingId(null);
+                      remove('events', ev.id, 'Partido borrado');
+                    }}
+                  />
                 ))}
               </ul>
             </div>
@@ -239,6 +217,97 @@ function TeamDetail({ team }: { team: Team }) {
         )}
       </section>
     </>
+  );
+}
+
+function EventRow({
+  ev,
+  past,
+  inherited,
+  editing,
+  onToggle,
+  onSave,
+  onRemove,
+}: {
+  ev: CalendarEvent;
+  past: boolean;
+  inherited?: number;
+  editing: boolean;
+  onToggle: () => void;
+  onSave: (e: CalendarEvent) => void;
+  onRemove: () => void;
+}) {
+  const d = parseLocalDate(ev.date);
+  const weekday = d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '');
+  const editorId = `ev-edit-${ev.id}`;
+  return (
+    <li className={'event-row' + (ev.time ? '' : ' pending') + (past ? ' past' : '') + (editing ? ' editing' : '')}>
+      <button className="ev-summary" aria-expanded={editing} aria-controls={editorId} onClick={onToggle}>
+        <span className="ev-date-chip" aria-label={formatDateLong(ev.date)}>
+          <span className="ev-wd">{weekday}</span>
+          <span className="ev-day">{d.getDate()}</span>
+        </span>
+        <span className={'ev-time-chip' + (ev.time ? '' : ' none')}>{ev.time ?? 'Sin hora'}</span>
+        <span className="ev-main">
+          <span className="ev-title-text">{ev.title || <span className="muted">Sin descripción</span>}</span>
+          {(ev.venue || ev.notes) && <span className="ev-sub">{[ev.venue, ev.notes].filter(Boolean).join(' · ')}</span>}
+        </span>
+        {ev.blockMinutesOverride !== undefined && <span className="pill">bloque {formatMinutes(ev.blockMinutesOverride)}</span>}
+        <span className="ev-action">{editing ? 'Cerrar' : 'Editar'}</span>
+      </button>
+      {editing && (
+        <div
+          id={editorId}
+          className="ev-editor"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onToggle();
+          }}
+        >
+          <div className="fields">
+            <label className="field">
+              <span>Fecha</span>
+              <input type="date" autoFocus value={ev.date} onChange={(e) => e.target.value && onSave({ ...ev, date: e.target.value })} />
+            </label>
+            <label className="field">
+              <span>
+                Hora <small className="muted">(sin hora no cuenta)</small>
+              </span>
+              <input type="time" value={ev.time ?? ''} onChange={(e) => onSave({ ...ev, time: e.target.value || undefined })} />
+            </label>
+            <label className="field grow">
+              <span>Partido / descripción</span>
+              <input value={ev.title} placeholder="p. ej. vs CB Rival" onChange={(e) => onSave({ ...ev, title: e.target.value })} />
+            </label>
+            <label className="field grow">
+              <span>Lugar</span>
+              <input value={ev.venue ?? ''} placeholder="Pabellón, dirección…" onChange={(e) => onSave({ ...ev, venue: e.target.value || undefined })} />
+            </label>
+          </div>
+          <details className="more" open={ev.blockMinutesOverride !== undefined}>
+            <summary>Más opciones</summary>
+            <div className="field">
+              <span>
+                Bloque propio de este partido <small className="muted">(vacío = {inherited ? formatMinutes(inherited) : 'el del equipo'})</small>
+              </span>
+              <DurationInput
+                optional
+                label="Bloque de este partido"
+                minutes={ev.blockMinutesOverride}
+                onChange={(m) => onSave({ ...ev, blockMinutesOverride: m })}
+              />
+            </div>
+          </details>
+          <div className="toolbar">
+            <button className="primary" onClick={onToggle}>
+              Listo
+            </button>
+            <button className="ghost danger" onClick={onRemove}>
+              <TrashIcon /> Borrar partido
+            </button>
+          </div>
+        </div>
+      )}
+    </li>
   );
 }
 

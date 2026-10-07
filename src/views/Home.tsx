@@ -1,15 +1,18 @@
 import { buildDemoData } from '../model/demo';
 import { useStore } from '../model/store';
-import { formatMinutes } from '../model/types';
-import { useUi, type TabId } from '../ui';
+import { DEFAULT_DATA, formatMinutes } from '../model/types';
+import { findConflicts } from '../logic/conflicts';
+import { formatDateShort, Icon, inkOn, localToday, useReplaceAllWithUndo, useUi, type TabId } from '../ui';
 
 export default function Home() {
-  const { data, dispatch } = useStore();
-  const { go, toast } = useUi();
+  const { data } = useStore();
+  const { go, confirm } = useUi();
+  const replaceAll = useReplaceAllWithUndo();
 
   const teamsWithEvents = data.teams.filter((t) => data.events.some((e) => e.teamId === t.id)).length;
   const usefulGroups = data.groups.filter((g) => g.teamIds.length >= 2).length;
   const isEmpty = data.teams.length === 0 && data.events.length === 0 && data.groups.length === 0;
+  const activitiesReviewed = JSON.stringify(data.activityTypes) !== JSON.stringify(DEFAULT_DATA.activityTypes);
 
   const steps: { title: string; text: string; done: boolean; tab: TabId; cta: string }[] = [
     {
@@ -17,7 +20,8 @@ export default function Home() {
       text: `Cuánto tiempo bloquea cada actividad desde que empieza, incluyendo el desplazamiento. Ahora: ${data.activityTypes
         .map((a) => `${a.name} ${formatMinutes(a.blockMinutes)}`)
         .join(', ')}.`,
-      done: data.activityTypes.length > 0,
+      // Hay tiempos por defecto, pero no cuenta como hecho hasta que se cambian o se pasa al siguiente paso.
+      done: activitiesReviewed || data.teams.length > 0,
       tab: 'activities',
       cta: 'Revisar tiempos',
     },
@@ -45,15 +49,62 @@ export default function Home() {
   ];
   const nextStep = steps.findIndex((s) => !s.done);
 
-  const loadDemo = () => {
-    if (!isEmpty && !window.confirm('Los datos de ejemplo sustituirán los que tienes ahora. ¿Seguir?')) return;
-    dispatch({ type: 'replaceAll', data: buildDemoData() });
-    toast('Datos de ejemplo cargados: 4 equipos y 2 grupos');
+  const loadDemo = async () => {
+    if (
+      !isEmpty &&
+      !(await confirm({
+        title: '¿Cargar los datos de ejemplo?',
+        body: <p>Sustituirán los equipos, partidos y grupos que tienes ahora. Podrás deshacerlo justo después.</p>,
+        confirmLabel: 'Cargar ejemplo',
+        offerBackup: true,
+      }))
+    )
+      return;
+    replaceAll(buildDemoData(), 'Datos de ejemplo cargados: 4 equipos y 2 grupos');
     go('conflicts');
   };
 
+  // Con grupos ya montados, Inicio es el marcador de la temporada en lugar de la portada explicativa.
+  const today = localToday();
+  const upcoming = new Set(
+    data.groups.flatMap((g) => findConflicts(g, data, { from: today })).map((c) => [c.a.id, c.b.id].sort().join('|')),
+  ).size;
+  const nextMatch = data.events
+    .filter((e) => e.date >= today && e.time)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))[0];
+  const nextTeam = data.teams.find((t) => t.id === nextMatch?.teamId)?.name;
+
   return (
     <div className="home">
+      {usefulGroups > 0 ? (
+        <section className="season" aria-labelledby="season-title">
+          <h1 id="season-title">Tu temporada</h1>
+          <div className={'stats scoreboard' + (upcoming ? '' : ' clear')}>
+            <div className={'stat ' + (upcoming ? 'bad' : 'ok')}>
+              <span className="stat-value">{upcoming}</span>
+              <span className="stat-label">
+                {upcoming === 1 ? 'coincidencia próxima' : upcoming ? 'coincidencias próximas' : 'coincidencias · todo cuadra'}
+              </span>
+            </div>
+            <div className="stat">
+              <span className="stat-value">{data.teams.length}</span>
+              <span className="stat-label">{data.teams.length === 1 ? 'equipo' : 'equipos'}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-value small">{nextMatch ? `${formatDateShort(nextMatch.date)} · ${nextMatch.time}` : '—'}</span>
+              <span className="stat-label">{nextTeam ? `próximo partido: ${nextTeam}` : 'próximo partido'}</span>
+            </div>
+          </div>
+          <div className="hero-actions">
+            <button className="primary lg" onClick={() => go('conflicts')}>
+              {upcoming ? 'Ver coincidencias' : 'Ver el calendario'}
+            </button>
+            <button className="lg" onClick={() => go('teams')}>
+              Añadir partidos
+            </button>
+          </div>
+        </section>
+      ) : (
       <section className="hero">
         <h1>Encuentra qué partidos se pisan antes de que pase</h1>
         <p className="lead">
@@ -69,6 +120,7 @@ export default function Home() {
           </button>
         </div>
       </section>
+      )}
 
       <section className="card">
         <h2>¿Cómo decide si hay coincidencia?</h2>
@@ -82,8 +134,8 @@ export default function Home() {
             label="Coincidencia"
             bad
             bars={[
-              { from: 10, to: 13, text: 'Baloncesto 10:00 (3 h)', color: 'var(--c-basket)' },
-              { from: 12.5, to: 16, text: 'Fútbol 12:30 (3 h 30)', color: 'var(--c-futbol)', row: 1 },
+              { from: 10, to: 13, text: 'Baloncesto 10:00 (3 h)', color: '#ff7a45' },
+              { from: 12.5, to: 16, text: 'Fútbol 12:30 (3 h 30)', color: '#2e9d4f', row: 1 },
             ]}
             overlap={[12.5, 13]}
             note="Se pisan 30 min: el fútbol tendría que empezar a las 13:00 o más tarde."
@@ -91,8 +143,8 @@ export default function Home() {
           <Timeline
             label="Sin coincidencia"
             bars={[
-              { from: 10, to: 13, text: 'Baloncesto 10:00 (3 h)', color: 'var(--c-basket)' },
-              { from: 13, to: 16.5, text: 'Fútbol 13:00 (3 h 30)', color: 'var(--c-futbol)', row: 1 },
+              { from: 10, to: 13, text: 'Baloncesto 10:00 (3 h)', color: '#ff7a45' },
+              { from: 13, to: 16.5, text: 'Fútbol 13:00 (3 h 30)', color: '#2e9d4f', row: 1 },
             ]}
             note="Un bloque acaba justo cuando empieza el otro: da tiempo a llegar."
           />
@@ -105,13 +157,13 @@ export default function Home() {
           {steps.map((s, i) => (
             <li key={s.title} className={s.done ? 'done' : i === nextStep ? 'current' : ''}>
               <span className="step-num" aria-hidden>
-                {s.done ? '✓' : i + 1}
+                {s.done ? <Icon name="check" size={20} /> : i + 1}
               </span>
               <div className="step-body">
                 <h3>{s.title}</h3>
                 <p>{s.text}</p>
               </div>
-              <button className={i === nextStep ? 'primary' : ''} onClick={() => go(s.tab)}>
+              <button onClick={() => go(s.tab)}>
                 {s.cta}
               </button>
             </li>
@@ -184,7 +236,7 @@ function Timeline({
           <span
             key={b.text}
             className="tl-bar"
-            style={{ left: pct(b.from), width: `calc(${pct(b.to)} - ${pct(b.from)})`, top: 22 + (b.row ?? 0) * 30, background: b.color }}
+            style={{ left: pct(b.from), width: `calc(${pct(b.to)} - ${pct(b.from)})`, top: 22 + (b.row ?? 0) * 30, background: b.color, color: inkOn(b.color) }}
           >
             {b.text}
           </span>

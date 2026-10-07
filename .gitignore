@@ -3,3 +3,6 @@ dist
 *.local
 .vite
 *.tsbuildinfo
+
+# Impeccable (críticas y configuración local del plugin de diseño)
+.impeccable/

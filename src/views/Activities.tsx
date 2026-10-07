@@ -1,6 +1,6 @@
 import { useStore } from '../model/store';
 import { formatMinutes, newId, type ActivityType } from '../model/types';
-import { plural, TrashIcon, useRemoveWithUndo } from '../ui';
+import { NameInput, plural, TrashIcon, useRemoveWithUndo } from '../ui';
 import { DurationInput } from './DurationInput';
 
 export default function Activities() {
@@ -22,17 +22,17 @@ export default function Activities() {
         {data.activityTypes.map((a) => {
           const nTeams = data.teams.filter((t) => t.activityTypeId === a.id).length;
           return (
-            <div key={a.id} className="activity" style={{ borderLeftColor: a.color }}>
+            <div key={a.id} className="activity">
               <label className="color-swatch" title="Cambiar color">
-                <input type="color" value={a.color} onChange={(e) => save({ ...a, color: e.target.value })} />
+                <input type="color" aria-label={`Color de ${a.name}`} value={a.color} onChange={(e) => save({ ...a, color: e.target.value })} />
               </label>
               <label className="field grow">
                 <span>Nombre</span>
-                <input value={a.name} onChange={(e) => save({ ...a, name: e.target.value })} />
+                <NameInput value={a.name} onSave={(name) => save({ ...a, name })} />
               </label>
               <div className="field">
                 <span>Bloque ocupado</span>
-                <DurationInput minutes={a.blockMinutes} onChange={(m) => save({ ...a, blockMinutes: m ?? 60 })} />
+                <DurationInput label={`Bloque de ${a.name || 'la actividad'}`} minutes={a.blockMinutes} onChange={(m) => save({ ...a, blockMinutes: m ?? 60 })} />
               </div>
               <div className="activity-meta">
                 <span className="block-preview">{formatMinutes(a.blockMinutes)}</span>
@@ -44,11 +44,9 @@ export default function Activities() {
                 className="icon-btn danger"
                 title="Borrar actividad"
                 aria-label={`Borrar ${a.name}`}
-                onClick={() => {
-                  if (nTeams === 0 || window.confirm(`Se borrarán también ${plural(nTeams, 'equipo')} y sus partidos. ¿Seguir?`)) {
-                    remove('activityTypes', a.id, `Actividad "${a.name}" borrada`);
-                  }
-                }}
+                onClick={() =>
+                  remove('activityTypes', a.id, `Actividad "${a.name}" borrada` + (nTeams ? ` con ${plural(nTeams, 'equipo')} y sus partidos` : ''))
+                }
               >
                 <TrashIcon />
               </button>

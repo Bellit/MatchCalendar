@@ -7,6 +7,9 @@ import { formatDateShort, plural, useUi } from '../ui';
 
 type Row = ParsedMatch & { include: boolean };
 
+// En pantallas táctiles no hay ratón ni Ctrl+C: las instrucciones cambian.
+const isTouch = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+
 export default function FcbqImport({ team, onDone }: { team: Team; onDone: () => void }) {
   const { data, dispatch } = useStore();
   const { toast } = useUi();
@@ -23,6 +26,16 @@ export default function FcbqImport({ team, onDone }: { team: Team; onDone: () =>
   const matches = matchExisting(selected, existing);
   const prevOf = new Map(selected.map((r, i) => [r, matches[i]]));
   const nUpdates = matches.filter(Boolean).length;
+  // Qué cambia en cada partido que ya estaba guardado: es lo que hay que poder comprobar antes de importar.
+  const changeOf = (r: Row): string[] => {
+    const prev = prevOf.get(r);
+    if (!prev) return [];
+    const out: string[] = [];
+    if (prev.date !== r.date) out.push(`${formatDateShort(prev.date)} → ${formatDateShort(r.date)}`);
+    if ((prev.time ?? '') !== (r.time ?? '')) out.push(`${prev.time ?? 'sin hora'} → ${r.time ?? 'sin hora'}`);
+    return out;
+  };
+  const nChanged = selected.filter((r) => changeOf(r).length > 0).length;
 
   const doImport = () => {
     const events: CalendarEvent[] = selected.map((r, i) => {
@@ -46,8 +59,17 @@ export default function FcbqImport({ team, onDone }: { team: Team; onDone: () =>
           </a>
           .
         </li>
-        <li>Selecciona con el ratón toda la tabla de partidos y cópiala (Ctrl+C).</li>
-        <li>Pégala aquí debajo (Ctrl+V). Revisa la lista y pulsa Importar.</li>
+        {isTouch ? (
+          <>
+            <li>Mantén pulsado sobre la tabla de partidos, ajusta la selección para que cubra toda la tabla y elige «Copiar».</li>
+            <li>Mantén pulsado en el recuadro de abajo y elige «Pegar». Revisa la lista y pulsa Importar.</li>
+          </>
+        ) : (
+          <>
+            <li>Selecciona con el ratón toda la tabla de partidos y cópiala (Ctrl+C).</li>
+            <li>Pégala aquí debajo (Ctrl+V). Revisa la lista y pulsa Importar.</li>
+          </>
+        )}
       </ol>
       <textarea
         rows={rows ? 3 : 7}
@@ -67,7 +89,7 @@ export default function FcbqImport({ team, onDone }: { team: Team; onDone: () =>
       {rows && rows.length > 0 && (
         <>
           <p className="notice ok">
-            ✅ {plural(rows.length, 'partido detectado', 'partidos detectados')}. Desmarca los que no quieras y corrige lo que haga falta.
+            {plural(rows.length, 'partido detectado', 'partidos detectados')}. Desmarca los que no quieras y corrige lo que haga falta.
           </p>
           <div className="table-wrap">
             <table className="events">
@@ -106,12 +128,33 @@ export default function FcbqImport({ team, onDone }: { team: Team; onDone: () =>
                     <td>
                       <input className="wide" value={r.venue ?? ''} onChange={(e) => update(i, { venue: e.target.value || undefined })} />
                     </td>
-                    <td>{!r.include ? null : prevOf.get(r) ? <span className="pill">actualiza</span> : <span className="pill new">nuevo</span>}</td>
+                    <td>
+                      {!r.include ? null : !prevOf.get(r) ? (
+                        <span className="pill new">nuevo</span>
+                      ) : changeOf(r).length ? (
+                        changeOf(r).map((c) => (
+                          <span key={c} className="pill change">
+                            {c}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="pill">sin cambios</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {nUpdates > 0 && (
+            <p className={'notice ' + (nChanged ? 'warn' : 'ok')} role="status">
+              {nChanged
+                ? `${plural(nChanged, 'partido ya guardado cambia', 'partidos ya guardados cambian')} de fecha u hora. Revísalos en la última columna.`
+                : nUpdates === 1
+                  ? 'El partido ya guardado no cambia de fecha ni de hora.'
+                  : `Los ${nUpdates} partidos ya guardados no cambian de fecha ni de hora.`}
+            </p>
+          )}
           <div className="toolbar">
             <button className="primary" onClick={doImport} disabled={selected.length === 0}>
               Importar {plural(selected.length, 'partido')}
