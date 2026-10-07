@@ -10,6 +10,8 @@
  * Si las líneas no siguen ese formato se usa un modo genérico tolerante: cada fecha empieza
  * un partido y el resto de textos se reparten entre título y lugar.
  */
+import { isValidDate } from '../model/validate';
+
 export interface ParsedMatch {
   date: string; // YYYY-MM-DD
   time?: string; // HH:MM
@@ -35,7 +37,10 @@ function parseDate(line: string): { date: string; raw: string } | null {
   const month = Number(m[2]);
   if (day < 1 || day > 31 || month < 1 || month > 12) return null;
   const year = m[3].length <= 2 ? 2000 + Number(m[3]) : Number(m[3]);
-  return { date: `${year}-${pad(month)}-${pad(day)}`, raw: m[0] };
+  const date = `${year}-${pad(month)}-${pad(day)}`;
+  // Descarta fechas imposibles (31/02): se guardarían mal y la validación las eliminaría al recargar.
+  if (!isValidDate(date)) return null;
+  return { date, raw: m[0] };
 }
 
 /** Divide una línea en celdas (tabuladores o 2+ espacios) y quita las celdas de ruido. */

@@ -1,6 +1,7 @@
 import { useRef } from 'react';
-import { isAppData, useStore } from '../model/store';
+import { useStore } from '../model/store';
 import { DEFAULT_DATA } from '../model/types';
+import { sanitizeAppData } from '../model/validate';
 import { localToday, useUi } from '../ui';
 
 export default function Data() {
@@ -20,11 +21,21 @@ export default function Data() {
 
   const importJson = async (file: File) => {
     try {
-      const parsed = JSON.parse(await file.text());
-      if (!isAppData(parsed)) throw new Error('el archivo no es una copia de MatchCalendar');
-      if (window.confirm('Esto sustituirá todos los datos actuales. ¿Seguir?')) {
-        dispatch({ type: 'replaceAll', data: parsed });
-        toast(`Copia importada: ${parsed.teams.length} equipos, ${parsed.events.length} partidos`);
+      let raw: unknown;
+      try {
+        raw = JSON.parse(await file.text());
+      } catch {
+        throw new Error('el archivo no es un JSON válido');
+      }
+      const result = sanitizeAppData(raw);
+      if (!result) throw new Error('el archivo no es una copia de MatchCalendar');
+      const { data: clean, dropped } = result;
+      const warning = dropped
+        ? `\n\nAtención: ${dropped} ${dropped === 1 ? 'elemento del archivo está dañado o incompleto' : 'elementos del archivo están dañados o incompletos'} y no se cargará${dropped === 1 ? '' : 'n'}.`
+        : '';
+      if (window.confirm(`Esto sustituirá todos los datos actuales. ¿Seguir?${warning}`)) {
+        dispatch({ type: 'replaceAll', data: clean });
+        toast(`Copia importada: ${clean.teams.length} equipos, ${clean.events.length} partidos` + (dropped ? ` (${dropped} descartados)` : ''));
       }
     } catch (e) {
       toast(`No se pudo importar: ${(e as Error).message}`);

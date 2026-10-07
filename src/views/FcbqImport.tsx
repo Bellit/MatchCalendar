@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { parseFcbqText, type ParsedMatch } from '../import/fcbqParser';
+import { matchExisting } from '../import/match';
 import { useStore } from '../model/store';
 import { newId, type CalendarEvent, type Team } from '../model/types';
 import { formatDateShort, useUi } from '../ui';
@@ -13,18 +14,19 @@ export default function FcbqImport({ team, onDone }: { team: Team; onDone: () =>
   const [rows, setRows] = useState<Row[] | null>(null);
 
   const existing = data.events.filter((e) => e.teamId === team.id);
-  // Mismo equipo y misma fecha → se actualiza el partido existente (p. ej. cambio de hora).
-  const findPrev = (r: Row) => existing.find((e) => e.date === r.date);
 
   const analyze = (t: string) => setRows(t.trim() ? parseFcbqText(t).map((m) => ({ ...m, include: true })) : null);
   const update = (i: number, patch: Partial<Row>) => setRows((rs) => rs!.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
   const selected = rows?.filter((r) => r.include) ?? [];
-  const nUpdates = selected.filter(findPrev).length;
+  // Solo se emparejan las filas marcadas: una fila desmarcada no debe "reservar" un partido guardado.
+  const matches = matchExisting(selected, existing);
+  const prevOf = new Map(selected.map((r, i) => [r, matches[i]]));
+  const nUpdates = matches.filter(Boolean).length;
 
   const doImport = () => {
-    const events: CalendarEvent[] = selected.map((r) => {
-      const prev = findPrev(r);
+    const events: CalendarEvent[] = selected.map((r, i) => {
+      const prev = matches[i];
       return { ...prev, id: prev?.id ?? newId(), teamId: team.id, date: r.date, time: r.time, title: r.title, venue: r.venue, notes: r.notes ?? prev?.notes };
     });
     dispatch({ type: 'upsertEvents', events });
@@ -104,7 +106,7 @@ export default function FcbqImport({ team, onDone }: { team: Team; onDone: () =>
                     <td>
                       <input className="wide" value={r.venue ?? ''} onChange={(e) => update(i, { venue: e.target.value || undefined })} />
                     </td>
-                    <td>{findPrev(r) ? <span className="pill">actualiza</span> : <span className="pill new">nuevo</span>}</td>
+                    <td>{!r.include ? null : prevOf.get(r) ? <span className="pill">actualiza</span> : <span className="pill new">nuevo</span>}</td>
                   </tr>
                 ))}
               </tbody>

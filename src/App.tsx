@@ -29,7 +29,7 @@ export default function App() {
 }
 
 function Shell() {
-  const { data } = useStore();
+  const { data, saveFailed } = useStore();
   const { nav, go } = useUi();
   const View = TABS.find((t) => t.id === nav.tab)!.view;
 
@@ -62,6 +62,17 @@ function Shell() {
         </nav>
       </header>
       <main key={nav.tab + (nav.teamId ?? '')}>
+        {saveFailed && (
+          <p className="notice bad save-failed" role="alert">
+            Los últimos cambios no se han podido guardar en este navegador (almacenamiento lleno o bloqueado). Si cierras la página se
+            perderán.{' '}
+            {nav.tab !== 'data' && (
+              <button className="link" onClick={() => go('data')}>
+                Descargar una copia
+              </button>
+            )}
+          </p>
+        )}
         <View />
       </main>
     </div>

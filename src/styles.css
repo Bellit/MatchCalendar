@@ -210,6 +210,13 @@ input[type='checkbox'] { accent-color: var(--ink); width: 16px; height: 16px; }
 .notice { padding: 10px 14px; border-radius: var(--r-ctl); font-size: 0.92rem; border-left: 4px solid; }
 .notice.warn { background: var(--warn-soft); color: var(--warn); border-color: var(--brand-orange); }
 .notice.ok { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
+.notice.bad { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+.notice .link { color: inherit; font-weight: 600; }
+.save-failed { margin-bottom: 18px; }
+
+.crash { max-width: 640px; margin: 40px auto; }
+.crash h1 { font-size: 1.6rem; }
+.crash-detail { font-size: 0.82rem; margin: 16px 0 0; word-break: break-word; }
 
 /* ───────── Cards ───────── */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 22px 24px; margin-bottom: 18px; }

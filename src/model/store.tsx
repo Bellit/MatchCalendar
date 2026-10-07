@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useReducer, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { DEFAULT_DATA, type ActivityType, type AppData, type CalendarEvent, type Group, type Team } from './types';
+import { sanitizeAppData } from './validate';
 
-const STORAGE_KEY = 'matchcalendar:v1';
+export const STORAGE_KEY = 'matchcalendar:v1';
 
 type Collection = 'activityTypes' | 'teams' | 'events' | 'groups';
 type Item = ActivityType | Team | CalendarEvent | Group;
@@ -46,36 +47,67 @@ function reducer(state: AppData, action: Action): AppData {
   }
 }
 
-export function isAppData(x: unknown): x is AppData {
-  const d = x as AppData;
-  return !!d && Array.isArray(d.activityTypes) && Array.isArray(d.teams) && Array.isArray(d.events) && Array.isArray(d.groups);
+/** Interpreta el JSON guardado; datos corruptos o manipulados se limpian en lugar de romper la app. */
+function parseStored(raw: string | null): AppData | null {
+  if (!raw) return null;
+  try {
+    return sanitizeAppData(JSON.parse(raw))?.data ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function load(): AppData {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (isAppData(parsed)) return parsed;
-    }
+    return parseStored(localStorage.getItem(STORAGE_KEY)) ?? DEFAULT_DATA;
   } catch {
-    /* datos corruptos o storage bloqueado: empezar de cero */
+    /* storage bloqueado: empezar de cero */
+    return DEFAULT_DATA;
   }
-  return DEFAULT_DATA;
 }
 
-const StoreContext = createContext<{ data: AppData; dispatch: (a: Action) => void } | null>(null);
+interface StoreContextValue {
+  data: AppData;
+  dispatch: (a: Action) => void;
+  /** true si el último guardado en el navegador ha fallado (almacenamiento lleno o bloqueado). */
+  saveFailed: boolean;
+}
+
+const StoreContext = createContext<StoreContextValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [data, dispatch] = useReducer(reducer, undefined, load);
+  const [saveFailed, setSaveFailed] = useState(false);
+  // Último JSON escrito o recibido de otra pestaña: evita reescribir lo que ya está guardado.
+  const lastSaved = useRef<string | null>(null);
+
   useEffect(() => {
+    const json = JSON.stringify(data);
+    if (json === lastSaved.current) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(STORAGE_KEY, json);
+      lastSaved.current = json;
+      setSaveFailed(false);
     } catch {
-      /* ignorar */
+      setSaveFailed(true);
     }
   }, [data]);
-  return <StoreContext.Provider value={{ data, dispatch }}>{children}</StoreContext.Provider>;
+
+  // Con la app abierta en varias pestañas, cada una adopta los cambios de las demás
+  // en vez de pisarlos con su copia antigua en el siguiente guardado.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY || e.newValue === null || e.newValue === lastSaved.current) return;
+      const next = parseStored(e.newValue);
+      if (!next) return;
+      lastSaved.current = e.newValue;
+      dispatch({ type: 'replaceAll', data: next });
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  return <StoreContext.Provider value={{ data, dispatch, saveFailed }}>{children}</StoreContext.Provider>;
 }
 
 export function useStore() {

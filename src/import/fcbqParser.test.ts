@@ -54,3 +54,10 @@ Pista Escola Z`;
     expect(m[1]).toMatchObject({ date: '2026-10-25', time: '10:15', venue: 'Pista Escola Z' });
   });
 });
+
+describe('fechas imposibles', () => {
+  it('ignora una fecha como 31/02 en lugar de guardarla desplazada', () => {
+    const r = parseFcbqText('31/02/2026\n10:00\nPartido malo\n07/03/2026\n11:00\nPartido bueno');
+    expect(r.map((m) => m.date)).toEqual(['2026-03-07']);
+  });
+});
